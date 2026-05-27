@@ -1,32 +1,32 @@
-# Automated Data Onboarding & Integration Pipeline PoC
+# Automated REST API Inboarding & Defensive Integration Pipeline PoC
 
-A lightweight, platform-agnostic data integration engine designed to demonstrate a resilient, defensive approach to system-to-system flat-file onboarding. Built using Python for perimeter file system verification and DuckDB for relational staging and strict schema transformation workflows.
+A lightweight, platform-agnostic data integration engine designed to demonstrate a resilient, defensive approach to web-connected system-to-system onboarding workflows. Built using **Python (Requests)** for secure network payload consumption and **DuckDB** for relational staging and strict schema transformation logic.
 
 ## 🏗️ Architectural Strategy
 
-When integrating data between external clients (e.g., enterprise portals or university management platforms) and a target SaaS core application, importing raw files directly into clean production tables introduces significant operational risks. Formatting anomalies, duplicate primary keys, or structural column modifications can break downstream application state logic.
+When integrating data between external client systems and a core SaaS application, accepting data streams directly into production environments introduces critical operational risks. Structural modifications, duplicate primary keys, or malformed values can easily break downstream application state logic.
 
-This Proof of Concept (PoC) implements an advanced four-tier defensive strategy:
-1. **Perimeter Layer (Python):** Automatically scans target inbound landing zones, verifies file presence, and executes byte-size integrity checks to isolate empty payloads before initializing database execution.
-2. **Schema Contract Validation (Python/Pandas):** Compares the inbound file schema against an immutable "Source of Truth" column array. Detects **Schema Drift** (missing columns or undocumented client additions) and executes dynamic field isolation to prevent staging layer compilation failures.
-3. **Staging Layer (DuckDB - Relational Staging):** Ingests sanitized raw data completely into flexible string-based VARCHAR schemas. This ensures the ingestion pipeline never crashes on initial load, regardless of malformed row values.
-4. **Transformation & Load Layer (SQL Engine):** Executes systematic data-fidelity queries to programmatically isolate orphan records, trap duplicate primary key collisions, map dynamic value conversions (e.g., bitwise flags to categorical strings), and cleanly load validated entries into a strict, type-safe production schema.
+This Proof of Concept (PoC) implements a four-tier defensive strategy:
+1. **API Ingestion Layer (Python):** Establishes secure handshakes with target REST endpoints, parsing raw payloads into memory streams with comprehensive HTTP status handling.
+2. **Schema Contract Validation:** Compares inbound streams against an immutable structural contract. Programmatically detects **Schema Drift** (unannounced client structural shifts or rogue columns) and safely sanitizes fields to prevent database layer failures.
+3. **Loose Relational Staging (DuckDB):** Ingests raw data completely into flexible string-based VARCHAR tables, ensuring the execution engine never crashes on initial load regardless of row-level value defects.
+4. **Transformation & Load Layer:** Executes rigorous analytical SQL queries to detect and report orphan records, trap duplicate primary key collisions, map categorical strings, and insert clean records into a strict production schema.
 
 ---
 
 ## 🛠️ Tech Stack & Requirements
-* Runtime: Python 3.x
-* Data Processing: Pandas (for DataFrame abstraction)
-* Database Engine: DuckDB (In-process analytical RDBMS)
-* Version Control: Git
+* **Runtime:** Python 3.x
+* **Core Libraries:** Pandas, Requests
+* **Database Engine:** DuckDB (In-process analytical RDBMS)
+* **Testing Framework:** PyTest, Responses (HTTP Network Mocking)
 
 ---
 
-## 🚀 Local Deployment & Verification
+## 🚀 Local Deployment & Test Automation
 
-To run this data integration engine inside an isolated virtual environment:
+To clone this integration engine and execute its automated test suite inside an isolated environment:
 
-1. Clone the repository and navigate to the project directory:
+1. Clone the repository and enter the directory:
 git clone https://github.com/thomaswooknam/edsights-integration-pipeline-poc.git
 cd edsights-integration-pipeline-poc
 
@@ -34,38 +34,20 @@ cd edsights-integration-pipeline-poc
 python3 -m venv .venv
 source .venv/bin/activate
 
-3. Install the engine dependencies:
-pip install duckdb pandas
+3. Install the engine and testing dependencies:
+pip install duckdb pandas requests responses pytest
 
-4. Execute the pipeline:
-python pipeline_poc.py
+4. Run the automated test suite:
+pytest -v
 
 ---
 
-## 📊 Sample Validation Engine Trace Log
+## 📊 Automated Test Suite Trace Log
 
-When running, the engine automatically catches deliberate schema contract modifications (such as undocumented client columns), isolates structural drifts, screens data fidelity discrepancies (duplicate entries, missing primary IDs), and outputs a clean execution trace:
+When the testing suite runs, it simulates live web responses and schema anomalies, proving the resilience of the data infrastructure:
 
---- STEP 0: SFTP LANDING ZONE & FILE VERIFICATION ---
-Mock file 'university_roster.csv' successfully deposited via simulated SFTP transfer.
-[SUCCESS] File verification passed: Found 'university_roster.csv' in landing zone.
-[SUCCESS] File integrity passed: Size is 214 bytes. Proceeding to schema contract validation.
+test_pipeline.py::test_successful_api_fetch PASSED
+test_pipeline.py::test_api_server_error_throws_exception PASSED
+test_pipeline.py::test_schema_drift_from_stream PASSED
 
---- STEP 1: SCHEMA STRUCTURE CONTRACT VERIFICATION ---
-[INFO] Expected Schema Contract: ['STU_ID', 'FIRST_NAME', 'ENROLLMENT_STATUS', 'REGISTRATION_DATE']
-[INFO] Actual Incoming Schema:   ['STU_ID', 'FIRST_NAME', 'MIDDLE_NAME', 'ENROLLMENT_STATUS', 'REGISTRATION_DATE']
-[SCHEMA DRIFT DETECTED] Warning: Inbound file contains undocumented columns: ['MIDDLE_NAME']
-[ACTION] Defensive Isolation: Gracefully discarding rogue columns ['MIDDLE_NAME'] to prevent staging layer compilation failure.
-
-Staging Layer Compiled: Sanitized data loaded safely into staging_university_roster.
-
---- RUNNING SYSTEMATIC DATA FIDELITY CHECKS ---
-[ALERT] Found 1 record(s) missing a student ID.
-[ALERT] Found 1 duplicate key conflict(s).
-
-Transformation Layer Complete: Production environment populated.
-
---- FINAL PRODUCTION TABLE RECORDS ---
-   student_id  first_name enrollment_status registration_date
-0         101       Tommy           Active        2026-05-01
-1         102  Alexandria           Active        2026-05-02
+============================================ 3 passed in 4.14s =============================================
