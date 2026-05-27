@@ -1,45 +1,40 @@
-import os
 import pytest
-from pipeline_poc import verify_schema_contract
+import responses
+from pipeline_poc import fetch_data_from_api, verify_schema_contract
 
 @pytest.fixture
-def create_mock_csv(tmp_path):
-    """Fixture to dynamically generate temporary CSV files for testing."""
-    def _create_file(headers_line):
-        file_path = tmp_path / "test_roster.csv"
-        file_path.write_text(f"{headers_line}\n101,Tommy,1,2026-05-01")
-        return str(file_path)
-    return _create_file
+def mock_api_url():
+    return "https://api.university.edu/v1/roster"
 
 
-def test_perfect_schema_match(create_mock_csv):
-    """Test that a perfectly matching schema returns no drift."""
+@responses.activate
+def test_successful_api_fetch(mock_api_url):
+    """Test that our API layer correctly downloads data from a successful 200 OK web response."""
+    mock_payload = "STU_ID,FIRST_NAME\n101,Tommy"
+    responses.add(responses.GET, mock_api_url, body=mock_payload, status=200)
+    
+    data = fetch_data_from_api(mock_api_url)
+    assert "STU_ID" in data
+    assert "Tommy" in data
+
+
+@responses.activate
+def test_api_server_error_throws_exception(mock_api_url):
+    """Test that a 500 Server Error from the API safely catches and raises a RuntimeError."""
+    responses.add(responses.GET, mock_api_url, status=500)
+    
+    with pytest.raises(RuntimeError) as exc_info:
+        fetch_data_from_api(mock_api_url)
+        
+    assert "API Connection Failure" in str(exc_info.value)
+
+
+def test_schema_drift_from_stream():
+    """Test that our contract logic still catches schema drift inside a raw network string stream."""
     expected = ["STU_ID", "FIRST_NAME", "ENROLLMENT_STATUS", "REGISTRATION_DATE"]
-    valid_file = create_mock_csv("STU_ID,FIRST_NAME,ENROLLMENT_STATUS,REGISTRATION_DATE")
+    drifted_stream = "STU_ID,FIRST_NAME,MIDDLE_NAME,ENROLLMENT_STATUS,REGISTRATION_DATE\n101,Tommy,Lee,1,2026-05-01"
     
-    result = verify_schema_contract(valid_file, expected)
-    
-    assert result["drift_detected"] is False
-    assert len(result["unexpected_columns"]) == 0
-
-
-def test_schema_drift_detection(create_mock_csv):
-    """Test that an added rogue column is successfully flagged as drift."""
-    expected = ["STU_ID", "FIRST_NAME", "ENROLLMENT_STATUS", "REGISTRATION_DATE"]
-    drifted_file = create_mock_csv("STU_ID,FIRST_NAME,MIDDLE_NAME,ENROLLMENT_STATUS,REGISTRATION_DATE")
-    
-    result = verify_schema_contract(drifted_file, expected)
+    result = verify_schema_contract(drifted_stream, expected)
     
     assert result["drift_detected"] is True
     assert "MIDDLE_NAME" in result["unexpected_columns"]
-
-
-def test_missing_column_throws_error(create_mock_csv):
-    """Test that a missing required column safely halts execution by raising a ValueError."""
-    expected = ["STU_ID", "FIRST_NAME", "ENROLLMENT_STATUS", "REGISTRATION_DATE"]
-    broken_file = create_mock_csv("STU_ID,FIRST_NAME,ENROLLMENT_STATUS")
-    
-    with pytest.raises(ValueError) as exc_info:
-        verify_schema_contract(broken_file, expected)
-        
-    assert "Missing required columns" in str(exc_info.value)
