@@ -6,10 +6,11 @@ A lightweight, platform-agnostic data integration engine designed to demonstrate
 
 When integrating data between external clients (e.g., enterprise portals or university management platforms) and a target SaaS core application, importing raw files directly into clean production tables introduces significant operational risks. Formatting anomalies, duplicate primary keys, or structural column modifications can break downstream application state logic.
 
-This Proof of Concept (PoC) implements a three-tier defensive strategy:
-1. Perimeter Layer (Python): Automatically scans the target inbound landing zones, verifies file presence, and executes byte-size integrity checks to isolate empty payloads before initializing database execution.
-2. Staging Layer (DuckDB - Relational Staging): Ingests raw data completely into flexible string-based VARCHAR schemas. This ensures the ingestion pipeline never crashes on initial load, regardless of malformed client inputs.
-3. Transformation & Load Layer (SQL Engine): Executes systematic data-fidelity queries to programmatically isolate orphan records, trap duplicate primary key collisions, map dynamic value conversions (e.g., bitwise flags to categorical strings), and cleanly load validated entries into a strict, type-safe production schema.
+This Proof of Concept (PoC) implements an advanced four-tier defensive strategy:
+1. **Perimeter Layer (Python):** Automatically scans target inbound landing zones, verifies file presence, and executes byte-size integrity checks to isolate empty payloads before initializing database execution.
+2. **Schema Contract Validation (Python/Pandas):** Compares the inbound file schema against an immutable "Source of Truth" column array. Detects **Schema Drift** (missing columns or undocumented client additions) and executes dynamic field isolation to prevent staging layer compilation failures.
+3. **Staging Layer (DuckDB - Relational Staging):** Ingests sanitized raw data completely into flexible string-based VARCHAR schemas. This ensures the ingestion pipeline never crashes on initial load, regardless of malformed row values.
+4. **Transformation & Load Layer (SQL Engine):** Executes systematic data-fidelity queries to programmatically isolate orphan records, trap duplicate primary key collisions, map dynamic value conversions (e.g., bitwise flags to categorical strings), and cleanly load validated entries into a strict, type-safe production schema.
 
 ---
 
@@ -41,18 +42,22 @@ python pipeline_poc.py
 
 ---
 
-## 📊 Sample Validation Engine Output
+## 📊 Sample Validation Engine Trace Log
 
-When running, the engine automatically catches deliberate formatting discrepancies (such as duplicate entries, unparsable dates, and missing primary IDs) and outputs a deterministic data-fidelity summary:
+When running, the engine automatically catches deliberate schema contract modifications (such as undocumented client columns), isolates structural drifts, screens data fidelity discrepancies (duplicate entries, missing primary IDs), and outputs a clean execution trace:
 
 --- STEP 0: SFTP LANDING ZONE & FILE VERIFICATION ---
-Created local mock SFTP landing directory: ./mock_sftp_inbound
 Mock file 'university_roster.csv' successfully deposited via simulated SFTP transfer.
 [SUCCESS] File verification passed: Found 'university_roster.csv' in landing zone.
-[SUCCESS] File integrity passed: File size is 185 bytes. Proceeding to database layer.
+[SUCCESS] File integrity passed: Size is 214 bytes. Proceeding to schema contract validation.
 
-Successfully connected to local database layer.
-Ingest Layer Complete: Raw SFTP data loaded into staging_university_roster.
+--- STEP 1: SCHEMA STRUCTURE CONTRACT VERIFICATION ---
+[INFO] Expected Schema Contract: ['STU_ID', 'FIRST_NAME', 'ENROLLMENT_STATUS', 'REGISTRATION_DATE']
+[INFO] Actual Incoming Schema:   ['STU_ID', 'FIRST_NAME', 'MIDDLE_NAME', 'ENROLLMENT_STATUS', 'REGISTRATION_DATE']
+[SCHEMA DRIFT DETECTED] Warning: Inbound file contains undocumented columns: ['MIDDLE_NAME']
+[ACTION] Defensive Isolation: Gracefully discarding rogue columns ['MIDDLE_NAME'] to prevent staging layer compilation failure.
+
+Staging Layer Compiled: Sanitized data loaded safely into staging_university_roster.
 
 --- RUNNING SYSTEMATIC DATA FIDELITY CHECKS ---
 [ALERT] Found 1 record(s) missing a student ID.
