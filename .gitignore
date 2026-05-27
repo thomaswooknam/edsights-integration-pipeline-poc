@@ -1,0 +1,9 @@
+# Isolate Python Sandbox
+.venv/
+__pycache__/
+*.pyc
+
+# Isolate Data & Database Engine Outputs
+mock_sftp_inbound/
+*.db
+*.db.wal
